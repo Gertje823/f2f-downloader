@@ -19,6 +19,8 @@ Script to download images and videos from f2f.net. The script can also download 
 This script will download public images and videos. This script should also work on paid content but I have not tested it yet.  
 It is also possible to download the like count, save count, comment count and comments. This data will be stored in a json file.
 
+Downloading paid content without subscription will result into blurred images. 
+
 ## Feature requests
 If you have any feature requests please let me know by creating an issue and I will try to take a look at it.
 
