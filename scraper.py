@@ -10,6 +10,10 @@ parser.add_argument('--save-json','-j',dest='download_json', action='store_true'
 parser.add_argument('--user','-u',dest='username', action='store', help='Username you want to download', required=True)
 args = parser.parse_args()
 
+headers = {
+    "YOUR_HEADERS_HERE"
+}
+
 
 def parseCookieFile(cookiefile):
     """Parse a cookies.txt file and return a dictionary of key value pairs
@@ -22,22 +26,6 @@ def parseCookieFile(cookiefile):
                 lineFields = line.strip().split('\t')
                 cookies[lineFields[5]] = lineFields[6]
     return cookies
-
-cookies = parseCookieFile('cookies.txt')
-
-headers = {
-    "YOUR_HEADERS_HERE"
-}
-
-username = args.username
-r = requests.get(f'https://f2f.net/{username}/', cookies=cookies, headers=headers)
-if r.status_code == 404:
-    print("User does not exist")
-    exit(1)
-creator = re.search('creator=(\d{1,})', r.text).group(1)
-soup = BeautifulSoup(r.content, features="lxml")
-test=  soup.find("div", {"class": "desc"}).text.strip()
-print(test)
 
 def extract_comments(r2):
     data = []
@@ -72,7 +60,7 @@ def download_content(items, username):
 
             # Visit post url to extract comments
             uri = f"https://f2f.net/{username}/{post_id}"
-            r2 = requests.get(uri, cookies=cookies, headers=headers)
+            r2 = requests.get(uri, headers=headers, cookies=cookies)
             # extract all comments
             allcomments = extract_comments(r2)
 
@@ -119,22 +107,11 @@ def download_content(items, username):
             with open(f"{username}/{post_id}.json", "w") as outfile:
                 json.dump(data, outfile, indent = 4)
 
-    print(len(urls))
-
-
-
-
-
-params = {
-    'paginate_by': '100',
-    'creator': creator,
-    'device': 'desktop',
-}
-
-response = requests.get('https://f2f.net/posts/', params=params, cookies=cookies, headers=headers).json()
-
+    #print(len(urls))
 def get_next(next_url, cookies, headers,  username):
-    response = requests.get(f'https://f2f.net{next_url}', cookies=cookies, headers=headers).json()
+    payload = {
+    }
+    response = requests.get(f'https://f2f.com{next_url}', headers=headers, data=payload, cookies=cookies).json()
     if "Content locked." in response['data']['html']:
         print()
         print(f"ERROR: Content locked. Follow {username} to download more content")
@@ -146,18 +123,72 @@ def get_next(next_url, cookies, headers,  username):
         if response['data']['paginator']['next_page_url']:
             get_next(response['data']['paginator']['next_page_url'], cookies, headers,  username)
 
-#print(response['data']['html'])
 
-soup = BeautifulSoup(response['data']['html'], features="lxml")
-items = soup.findAll("div", {"class": "feed-post desktop"})
+cookies = parseCookieFile('cookies.txt')
+
+
+username = args.username
+r = requests.get(f'https://f2f.com/api/creators/{username}/', headers=headers, cookies=cookies)
+if r.status_code == 404:
+    print("User does not exist")
+    exit(1)
+
+elif r.status_code == 401:
+    print("Maybe your token has expired?")
+    exit(1)
+# print(r.json())
+
+creator = r.json()['username']
+print(r.json()['description'])
 try:
     os.makedirs(f"{username}")
 except FileExistsError:
     # directory already exists
     pass
+
+# Save avatar & banner
+try:
+    with requests.get(r.json()['profile_image']) as x:
+        open(f'{username}/profile_image.jpg', 'wb').write(x.content)
+    file = f"{username}/profile_image.jpg"
+    type = 'image'
+except RequestException as e:
+    print(e)
+try:
+    with requests.get(r.json()['profile_banner']) as x:
+        open(f'{username}/profile_banner.jpg', 'wb').write(x.content)
+    file = f"{username}/profile_banner.jpg"
+    type = 'image'
+    print(file)
+except RequestException as e:
+    print(e)
+
+
+
+
+
+
+
+# Get id from username
+response = requests.get(f'https://f2f.com/{username}/feed/', headers=headers, cookies=cookies)
+# extract id
+id = re.search('data-url=\"\/posts\/\?creator=(.*)\"', response.text).group(1)
+#print(id)
+
+# Get feed items
+payload = {
+}
+headers["content-type"] = 'application/json'
+response = requests.get(f'https://f2f.com/posts/?creator={id}&device=desktop', headers=headers, data=payload, cookies=cookies).json()
+soup = BeautifulSoup(response['data']['html'], features="lxml")
+items = soup.findAll("div", {"class": "feed-post desktop"})
+
+#print(response['data']['html'])
+
+
 download_content(items, username)
 # Get next page with content
 if response['data']['paginator']['next_page_url']:
-    print(response['data']['paginator']['next_page_url'])
+    # print(response['data']['paginator']['next_page_url'])
     get_next(response['data']['paginator']['next_page_url'], cookies, headers, username)
 
