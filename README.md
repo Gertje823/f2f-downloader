@@ -3,7 +3,7 @@ Script to download images and videos from f2f.net. The script can also download 
 
 ## How to use  
 1. Generate a `cookies.txt` from your browser and place it in the script directory  
-2. Copy the request headers from your browser into the script on line 29  
+2. Copy the request headers from your browser into the script on line 14  
 3. Install the requirements `pip install -r requirements.txt`  
 4. run the script `python scraper.py -u <username> -j`  
 
